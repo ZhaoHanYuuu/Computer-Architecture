@@ -147,12 +147,34 @@ assign ds_to_es_bus = {alu_op      ,  //149:138
                        ds_pc          //31 :0
                       };
 //todo task 2
+
 //assign ds_ready_go    = 1'b1;
-assign ds_ready_go    =  (
-    ( !es_rf_wen || (es_rf_dest != rd) && (es_rf_dest != rj)) &&
-    ( !ms_rf_wen || (ms_rf_dest != rd) && (ms_rf_dest != rj)) &&
-    ( !ws_rf_wen || (ws_rf_dest != rd) && (ws_rf_dest != rj)) 
-    ) || inst_b || inst_bl;
+wire rk_read = inst_add_w & inst_sub_w & inst_slt & inst_sltu 
+                & inst_and & inst_or & inst_nor & inst_xor;
+wire rj_read = ~inst_lu12i_w & ~inst_b & ~inst_bl;
+wire rd_read = src_reg_is_rd;
+wire rk_conf = (rk != 0) && rk_read && (
+    es_rf_wen && es_rf_dest == rk
+    || ms_rf_wen && ms_rf_dest == rk
+    || ws_rf_wen && ws_rf_dest == rk
+);
+wire rj_conf = (rj !=0) && rj_read && (
+        es_rf_wen && es_rf_dest == rj
+    || ms_rf_wen && ms_rf_dest == rj
+    || ws_rf_wen && ws_rf_dest == rj
+);
+wire rd_conf = (rd !=0) && rd_read && (
+        es_rf_wen && es_rf_dest == rd
+    || ms_rf_wen && ms_rf_dest == rd
+    || ws_rf_wen && ws_rf_dest == rd
+);
+// assign ds_ready_go    =  (
+//     ( !es_rf_wen || es_rf_dest != rj ) &&
+//     ( !ms_rf_wen || ms_rf_dest != rj) &&
+//     ( !ws_rf_wen || ws_rf_dest != rj) 
+//     ) || inst_b || inst_bl;
+assign ds_ready_go = !rj_conf && !rd_conf && !rk_conf;
+//todo task 2
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid && ds_ready_go;
 //todo bug2 :add valid
@@ -259,7 +281,7 @@ assign src2_is_imm   = inst_slli_w |
 
 assign res_from_mem  = inst_ld_w;
 assign dst_is_r1     = inst_bl;
-assign gr_we         = ~inst_st_w & ~inst_beq & ~inst_bne & ~inst_b;
+assign gr_we         = ~inst_st_w & ~inst_beq & ~inst_bne & ~inst_b; //寄存器写指令
 assign mem_we        = inst_st_w;
 assign dest          = dst_is_r1 ? 5'd1 : rd;
 
@@ -291,3 +313,4 @@ assign br_target = (inst_beq || inst_bne || inst_bl || inst_b) ? (ds_pc + br_off
                                                    /*inst_jirl*/ (rj_value + jirl_offs);
 
 endmodule
+
